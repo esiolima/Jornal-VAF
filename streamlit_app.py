@@ -3,20 +3,24 @@ from fpdf import FPDF
 import io
 import pandas as pd
 
-st.title("Gerador de Cards Marketing via Planilha Interativa")
+st.title("Gerador Cards Marketing com Upload e Edição")
 
-# Colunas do card
 COLS = ["ORDEM", "FORNECEDOR", "CUPOM", "CATEGORIA", "MECANICA", "BENEFICIO", "URN", "CLIENTE"]
 
 if 'df_cards' not in st.session_state:
-    # DataFrame inicial vazio com colunas definidas
     st.session_state.df_cards = pd.DataFrame(columns=COLS)
 
-# Mostra a planilha editável e permite edição/manutenção das linhas
-df_edited = st.data_editor(st.session_state.df_cards, num_rows="dynamic", use_container_width=True)
+uploaded_file = st.file_uploader("Faça upload da planilha .xlsx", type=['xlsx'])
 
-# Atualiza o estado com os dados editados
-st.session_state.df_cards = df_edited
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
+    # Se precisar, force o cabeçalho correto: df = pd.read_excel(uploaded_file, header=0)
+    st.session_state.df_cards = df[COLS] if all(c in df.columns for c in COLS) else st.session_state.df_cards
+
+if not st.session_state.df_cards.empty:
+    st.subheader("Planilha - edite os dados abaixo se desejar")
+    df_edited = st.data_editor(st.session_state.df_cards, num_rows="dynamic", use_container_width=True)
+    st.session_state.df_cards = df_edited
 
 def cria_card(pdf, row):
     pdf.set_fill_color(255,255,255)
@@ -53,15 +57,18 @@ def gerar_pdf(grupo, dados):
                 y = 20
     return pdf
 
-if not st.session_state.df_cards.empty:
-    grupos = st.session_state.df_cards.groupby('CATEGORIA')
-    for nome_grupo, grupo_df in grupos:
-        pdf = gerar_pdf(nome_grupo, grupo_df)
-        buffer = io.BytesIO()
-        pdf.output(buffer)
-        st.download_button(
-            label=f"Baixar PDF [{nome_grupo}]",
-            data=buffer.getvalue(),
-            file_name=f"{nome_grupo}.pdf",
-            mime="application/pdf"
-        )
+if st.button("Gerar PDFs agrupados por categoria"):
+    if st.session_state.df_cards.empty:
+        st.warning("Preencha ou carregue a planilha antes.")
+    else:
+        grupos = st.session_state.df_cards.groupby('CATEGORIA')
+        for nome_grupo, grupo_df in grupos:
+            pdf = gerar_pdf(nome_grupo, grupo_df)
+            buffer = io.BytesIO()
+            pdf.output(buffer)
+            st.download_button(
+                label=f"Baixar PDF [{nome_grupo}]",
+                data=buffer.getvalue(),
+                file_name=f"{nome_grupo}.pdf",
+                mime="application/pdf"
+            )
