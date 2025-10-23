@@ -3,38 +3,23 @@ from fpdf import FPDF
 import io
 import pandas as pd
 
-st.title("Gerador Manual de Cards Marketing")
+st.title("Gerador de Cards Marketing via Planilha Interativa")
 
-# Usar sessão para armazenar os cards criados
-if 'cards' not in st.session_state:
-    st.session_state.cards = []
+# Colunas do card
+COLS = ["ORDEM", "FORNECEDOR", "CUPOM", "CATEGORIA", "MECANICA", "BENEFICIO", "URN", "CLIENTE"]
 
-with st.form("form-card"):
-    ordem = st.number_input("ORDEM", min_value=1, step=1)
-    fornecedor = st.text_input("FORNECEDOR")
-    cupom = st.text_input("CUPOM")
-    categoria = st.text_input("CATEGORIA")
-    mecanica = st.text_area("MECANICA")
-    beneficio = st.text_input("BENEFICIO")
-    urn = st.text_input("URN (texto pequeno)")
-    cliente = st.text_input("CLIENTE")
-    submitted = st.form_submit_button("Adicionar Card")
+if 'df_cards' not in st.session_state:
+    # DataFrame inicial vazio com colunas definidas
+    st.session_state.df_cards = pd.DataFrame(columns=COLS)
 
-if submitted:
-    st.session_state.cards.append({
-        'ORDEM': ordem,
-        'FORNECEDOR': fornecedor,
-        'CUPOM': cupom,
-        'CATEGORIA': categoria,
-        'MECANICA': mecanica,
-        'BENEFICIO': beneficio,
-        'URN': urn,
-        'CLIENTE': cliente
-    })
-    st.success("Card adicionado!")
+# Mostra a planilha editável e permite edição/manutenção das linhas
+df_edited = st.data_editor(st.session_state.df_cards, num_rows="dynamic", use_container_width=True)
+
+# Atualiza o estado com os dados editados
+st.session_state.df_cards = df_edited
 
 def cria_card(pdf, row):
-    pdf.set_fill_color(255,255,255)  # fundo branco
+    pdf.set_fill_color(255,255,255)
     pdf.rect(pdf.get_x(), pdf.get_y(), 65, 100, 'F')
     pdf.set_font("Arial", 'B', 14)
     pdf.cell(65, 12, str(row['FORNECEDOR']), align='C', ln=1)
@@ -50,13 +35,13 @@ def cria_card(pdf, row):
     pdf.ln(3)
 
 def gerar_pdf(grupo, dados):
-    dados = sorted(dados, key=lambda x: x['ORDEM'])
+    dados = dados.sort_values('ORDEM')
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     pdf.set_auto_page_break(auto=False, margin=12)
     x, y = 10, 20
     cards_p_linha = 3
-    for i, row in enumerate(dados):
+    for i, (_, row) in enumerate(dados.iterrows()):
         pdf.set_xy(x, y)
         cria_card(pdf, row)
         x += 70
@@ -68,22 +53,15 @@ def gerar_pdf(grupo, dados):
                 y = 20
     return pdf
 
-if st.session_state.cards:
-    st.subheader("Cards criados")
-    for c in st.session_state.cards:
-        st.write(f"{c['ORDEM']} - {c['FORNECEDOR']} - {c['CATEGORIA']}")
-
-    grupo_categorias = {}
-    for c in st.session_state.cards:
-        grupo_categorias.setdefault(c['CATEGORIA'], []).append(c)
-
-    for grupo, lista in grupo_categorias.items():
-        pdf = gerar_pdf(grupo, lista)
-        buf = io.BytesIO()
-        pdf.output(buf)
+if not st.session_state.df_cards.empty:
+    grupos = st.session_state.df_cards.groupby('CATEGORIA')
+    for nome_grupo, grupo_df in grupos:
+        pdf = gerar_pdf(nome_grupo, grupo_df)
+        buffer = io.BytesIO()
+        pdf.output(buffer)
         st.download_button(
-            label=f"Baixar PDF [{grupo}]",
-            data=buf.getvalue(),
-            file_name=f"{grupo}.pdf",
+            label=f"Baixar PDF [{nome_grupo}]",
+            data=buffer.getvalue(),
+            file_name=f"{nome_grupo}.pdf",
             mime="application/pdf"
         )
