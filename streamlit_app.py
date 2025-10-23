@@ -1,24 +1,28 @@
 import streamlit as st
+import pandas as pd
 from fpdf import FPDF
 import io
-import pandas as pd
 
-st.title("Gerador Cards Marketing com Upload e Edição")
+st.title("Gerador de Cards Varejo - Upload, Edição e PDF")
 
 COLS = ["ORDEM", "FORNECEDOR", "CUPOM", "CATEGORIA", "MECANICA", "BENEFICIO", "URN", "CLIENTE"]
 
 if 'df_cards' not in st.session_state:
     st.session_state.df_cards = pd.DataFrame(columns=COLS)
 
+# Upload da planilha
 uploaded_file = st.file_uploader("Faça upload da planilha .xlsx", type=['xlsx'])
 
-if uploaded_file is not None:
+if uploaded_file:
     df = pd.read_excel(uploaded_file)
-    # Se precisar, force o cabeçalho correto: df = pd.read_excel(uploaded_file, header=0)
-    st.session_state.df_cards = df[COLS] if all(c in df.columns for c in COLS) else st.session_state.df_cards
+    missing_cols = [col for col in COLS if col not in df.columns]
+    if missing_cols:
+        st.error(f"Colunas faltando na planilha: {missing_cols}")
+    else:
+        st.session_state.df_cards = df[COLS]
 
 if not st.session_state.df_cards.empty:
-    st.subheader("Planilha - edite os dados abaixo se desejar")
+    st.subheader("Edite os dados, se precisar")
     df_edited = st.data_editor(st.session_state.df_cards, num_rows="dynamic", use_container_width=True)
     st.session_state.df_cards = df_edited
 
@@ -59,7 +63,7 @@ def gerar_pdf(grupo, dados):
 
 if st.button("Gerar PDFs agrupados por categoria"):
     if st.session_state.df_cards.empty:
-        st.warning("Preencha ou carregue a planilha antes.")
+        st.warning("Carregue e revise os dados primeiro.")
     else:
         grupos = st.session_state.df_cards.groupby('CATEGORIA')
         for nome_grupo, grupo_df in grupos:
