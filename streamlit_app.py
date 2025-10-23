@@ -12,25 +12,25 @@ def cria_card(pdf, row):
     pdf.set_fill_color(255,255,255)  # fundo branco
     pdf.rect(pdf.get_x(), pdf.get_y(), 65, 100, 'F')
     pdf.set_font("Arial", 'B', 14)
-    # LOGO (nome do fornecedor)
-    pdf.cell(65, 12, str(row['C']), align='C', ln=1)
-    # MECÂNICA
+    # FORNECEDOR
+    pdf.cell(65, 12, str(row['FORNECEDOR']), align='C', ln=1)
+    # MECÂNICA/OBS
     pdf.set_font("Arial", '', 9)
-    pdf.cell(65, 7, str(row['I']), align='C', ln=1)
-    # DESTAQUE: desconto/percentual
-    if pd.notna(row['D']):
+    pdf.cell(65, 7, str(row['MECANICA/OBS']), align='C', ln=1)
+    # DESTAQUE: desconto/percentual/cupom etc.
+    if pd.notna(row['URN']) and len(str(row['URN'])) > 0:
         pdf.set_font("Arial", 'B', 16)
         pdf.set_text_color(0,60,200)
-        pdf.cell(65, 15, f"{row['D']}", align='C', ln=1)
+        pdf.cell(65, 15, f"{row['URN']}", align='C', ln=1)
         pdf.set_text_color(0,0,0)
     else:
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(65, 15, f"{str(row['E'])}", align='C', ln=1)
+        pdf.cell(65, 15, f"{str(row['%BENEF'])}", align='C', ln=1)
     pdf.set_font("Arial", '', 8)
-    # LOCALIDADES
-    pdf.cell(65, 6, str(row['J']), align='C', ln=1)
-    # SEGMENTO DE CLIENTES
-    pdf.cell(65, 6, f"Clientes: {str(row['K'])}", align='C', ln=1)
+    # LOCALIDADES ("VIGÊNCIA" ou outro campo para região/local — ajuste conforme necessidade)
+    pdf.cell(65, 6, str(row['VIGÊNCIA']), align='C', ln=1)  # ajuste aqui se for outro campo
+    # SEGMENTO DE CLIENTES ("AÇÃO" ou campo que indica segmento)
+    pdf.cell(65, 6, f"Segmento: {str(row['AÇÃO'])}", align='C', ln=1)
     pdf.ln(3)
 
 def gerar_pdf(grupo, dados):
@@ -53,12 +53,13 @@ def gerar_pdf(grupo, dados):
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
-    for categoria, grupo_df in df.groupby('CATEGORIAS'):
-        pdf = gerar_pdf(categoria, grupo_df.reset_index())
+    st.write("Colunas da planilha:", list(df.columns))  # debug: veja os nomes para ajustes finos
+    for grupo, grupo_df in df.groupby('GRUPO PRODUTOS'):
+        pdf = gerar_pdf(grupo, grupo_df.reset_index())
         buf = io.BytesIO()
         pdf.output(buf)
         st.download_button(
-            label=f"Baixar PDF [{categoria}]",
+            label=f"Baixar PDF [{grupo}]",
             data=buf.getvalue(),
-            file_name=f"{categoria}.pdf",
+            file_name=f"{grupo}.pdf",
             mime="application/pdf")
