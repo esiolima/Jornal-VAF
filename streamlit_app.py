@@ -53,7 +53,7 @@ def gerar_pdf(grupo, dados):
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
-    for categoria, grupo_df in df.groupby('H'):
+    for categoria, grupo_df in df.groupby('CATEGORIAS'):
         pdf = gerar_pdf(categoria, grupo_df.reset_index())
         buf = io.BytesIO()
         pdf.output(buf)
